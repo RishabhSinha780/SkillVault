@@ -44,38 +44,47 @@ The application will be accessible at `http://localhost:5173`.
 
 ## 🗺️ Application Routing
 
-- **`/`**: Split-panel Login & Registration screen with 3 role tabs (Student, Recruiter, Admin), password show/hide toggle, and inline validations.
-- **`/student`**: Client-side protected Student Dashboard with Welcome Hero, Stat cards, S3-ready Upload card, Activity timeline with blockchain audit proofs, AI Skill-Gap Radar chart, and Recruiter QR code generator.
-- **`/coming-soon?role=admin` & `?role=recruiter`**: Dedicated placeholder portal for institutional accreditation teams and enterprise recruiters.
+- **`/`**: Split-panel Login & Registration screen with 3 role tabs (Student, Recruiter, Admin), password show/hide toggle, demo quick-fill credentials, and inline validations.
+- **`/student`**: Client-side protected Student Dashboard with Welcome Hero, Stat cards (with recommended jobs count), S3-ready Upload card, Activity timeline with blockchain audit proofs, AI Skill-Gap Radar chart, "Jobs for you" AI-ranked matching section with live application tracker, and Recruiter QR code generator.
+- **`/recruiter`**: Client-side protected Recruiter Dashboard with posting management, dynamic job creation form with autocomplete skill tag inputs, status toggling (Open/Closed), and verified applicant review pipeline (Applied → Shortlisted → Interviewing → Hired / Rejected).
+- **`/coming-soon?role=admin`**: Dedicated placeholder portal for institutional accreditation teams and NIRF reports.
 
 ---
 
 ## 🔌 Backend & API Integration Roadmap
 
-All mock data is currently encapsulated in `src/data/mock.js` and state is managed via `AuthContext.jsx`. The exact touchpoints where real backend services will be plugged in are detailed below:
+All mock data is currently encapsulated in `src/data/mock.js` and `src/data/jobsMock.js`, and state is managed via `AuthContext.jsx` and `JobsContext.jsx`. The exact touchpoints where real backend services will be plugged in are detailed below:
 
 ### 1. Authentication & Role-Based Access Control (RBAC)
 - **Location**: `src/context/AuthContext.jsx` -> `login()` & `logout()`
 - **Future Integration**: Replace fake 800ms timer with `POST /api/v1/auth/login` and `POST /api/v1/auth/register`. Store JWT or HTTP-only secure cookie and decode institutional role claims (`student`, `faculty`, `admin`, `recruiter`).
 
-### 2. Proof Uploads via AWS S3 Presigned URLs
+### 2. Jobs Marketplace & Vacancies
+- **Location**: `src/context/JobsContext.jsx`
+- **Future Integration**:
+  - `POST /api/v1/jobs` - Create new vacancy with required/preferred skills.
+  - `GET /api/v1/jobs/recommended` - Retrieve jobs scored by student's on-chain skills.
+  - `POST /api/v1/jobs/:id/apply` - Submit student verified profile.
+  - `PATCH /api/v1/applications/:id` - Advance candidate status in recruiter review pipeline.
+
+### 3. Proof Uploads via AWS S3 Presigned URLs
 - **Location**: `src/components/UploadCard.jsx` -> `handleSubmit()`
 - **Future Integration**:
   1. Frontend requests an authorized upload ticket: `POST /api/v1/storage/presigned-url` with `{ filename, fileType, category }`.
   2. Frontend streams the raw binary directly to Amazon S3 via `PUT ${presignedUrl}` with standard progress tracking.
   3. Frontend sends metadata and the S3 key `s3FileKey` to the GraphQL mutation / REST endpoint `POST /api/v1/activities`.
 
-### 3. Faculty Verification & Approval Workflow
+### 4. Faculty Verification & Approval Workflow
 - **Location**: `src/components/Timeline.jsx` & Backend Microservice
 - **Future Integration**: Faculty dashboard will invoke `POST /api/v1/activities/:id/approve` or `POST /api/v1/activities/:id/reject` with structured accreditation feedback (NAAC Criterion 5 tags).
 
-### 4. Blockchain Hashing & EduLedger Minting
+### 5. Blockchain Hashing & EduLedger Minting
 - **Location**: `src/components/ProofModal.jsx` & `src/components/PortfolioQR.jsx`
 - **Future Integration**: Once faculty approves an achievement, the backend Python/Node.js blockchain worker computes the SHA-256 digest `H = SHA256(certificate_bytes + metadata + issuer_sig)` and submits a state transition to the Govt. of J&K Proof-of-Authority (PoA) Consortium Node. The resulting transaction hash and block number are returned to the client.
 
-### 5. AI Skill-Gap & Vector Embedding Service
-- **Location**: `src/components/SkillRadar.jsx`
-- **Future Integration**: A Python FastAPI microservice utilizing `SentenceTransformers` / OpenAI embeddings evaluates the student's verified courseworks and achievements against live job scrapers and NEP 2020 curriculum mandates. Returns dynamic radar vectors, prioritized skill gaps, and customized next-step recommendations.
+### 6. AI Skill Matching & Radar Engine
+- **Location**: `src/utils/matchJobs.js` & `src/components/SkillRadar.jsx`
+- **Future Integration**: Python ML microservice matching candidate embedding against industry job requirements with exact verified credential checks. Formula: 70% required skills match + 30% preferred skills match.
 
 ---
 

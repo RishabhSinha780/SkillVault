@@ -12,7 +12,13 @@ export const ProtectedRoute = ({ children, requiredRole = 'student' }) => {
 
   // If a specific role is required and user does not match, redirect appropriately
   if (requiredRole && currentRole !== requiredRole) {
-    if (currentRole === 'admin' || currentRole === 'recruiter') {
+    if (currentRole === 'recruiter') {
+      return <Navigate to="/recruiter" replace />;
+    }
+    if (currentRole === 'student') {
+      return <Navigate to="/student" replace />;
+    }
+    if (currentRole === 'admin') {
       return <Navigate to={`/coming-soon?role=${currentRole}`} replace />;
     }
     return <Navigate to="/" replace />;

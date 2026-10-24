@@ -30,29 +30,42 @@ Project/
     ├── package.json                    # Minimal dependencies (Tailwind v4, Recharts, Lucide, Framer Motion)
     ├── vite.config.js                  # Vite configuration with @tailwindcss/vite plugin
     └── src/
-        ├── App.jsx                     # Route declarations, ProtectedRoute & AuthProvider wrapping
+        ├── App.jsx                     # Route declarations, ProtectedRoute & JobsProvider wrapping
         ├── main.jsx                    # React entrypoint (StrictMode)
         ├── index.css                   # PointoPark design system, custom scrollbars, subtle radial glows
         ├── context/
-        │   └── AuthContext.jsx         # Role state, clean data merging, credential sanitization, 800ms auth delay
+        │   ├── AuthContext.jsx         # Role state, clean data merging, credential sanitization
+        │   └── JobsContext.jsx         # Jobs & applications state, localStorage persistence, pipeline actions
         ├── routes/
-        │   └── ProtectedRoute.jsx      # Client-side route guard enforcing authentication & student role
+        │   └── ProtectedRoute.jsx      # Client-side route guard enforcing authentication & role access
+        ├── utils/
+        │   ├── dates.js                # Real local ISO date helpers (todayISO, addDays, isPastDeadline)
+        │   └── matchJobs.js            # Pure function: 70% required + 30% preferred verified skill matching
         ├── data/
-        │   └── mock.js                 # Realistic student record, timeline items, radar datasets & career paths
+        │   ├── mock.js                 # Realistic student record, timeline items, radar datasets & career paths
+        │   └── jobsMock.js             # 8 seeded jobs, applicant pool, skill vocabulary, sample applications
         ├── components/
         │   ├── Navbar.jsx              # Sticky header with shield check logo, fast section scrolling & user menu
         │   ├── Footer.jsx              # Institutional copyright, accreditation policies, & security labels
-        │   ├── StatCard.jsx            # Animated metric counters & circular SVG verified score ring (94/100)
+        │   ├── StatCard.jsx            # Animated metric counters, verified score ring (94/100) & recommended jobs count
         │   ├── UploadCard.jsx          # Accessible file upload zone, PDF/image handling & S3 presigned URL comments
         │   ├── Timeline.jsx            # Vertical audit timeline, category & status filters, search input
         │   ├── ProofModal.jsx          # On-chain proof inspection modal with styled PDF placeholder & SHA-256 hash
         │   ├── SkillRadar.jsx          # Dark-mode Recharts Radar Chart, skill gap progress bars & career paths
-        │   ├── PortfolioQR.jsx         # Scannable QRCodeSVG, one-click copyable link, demo-data tag & 01-02-03 step cards
-        │   └── NotificationToast.jsx   # Interactive floating toast with aria-live="polite"
+        │   ├── PortfolioQR.jsx         # Scannable QRCodeSVG, one-click copyable link & 01-02-03 step cards
+        │   ├── NotificationToast.jsx   # Interactive floating toast with aria-live="polite"
+        │   └── jobs/
+        │       ├── JobCard.jsx         # Match score gauge, you match / missing chips, details & apply CTAs
+        │       ├── JobDetailsModal.jsx # Full vacancy description, split skill gaps, and actionable hints
+        │       ├── ApplicationTracker.jsx # 4-step candidate progression pipeline (Applied→Shortlisted→Interviewing→Hired)
+        │       ├── PostJobForm.jsx     # Accessible recruiter vacancy creator with autocomplete skill tags
+        │       ├── SkillTagInput.jsx   # Reusable tag input with autocomplete suggestions from skill vocabulary
+        │       └── ApplicantCard.jsx   # Recruiter applicant inspector, pipeline stage dropdown, & verified portfolio modal
         └── pages/
-            ├── Login.jsx               # Page 1: Split desktop layout, accessible inputs, role tabs, login/signup toggle
-            ├── StudentDashboard.jsx    # Page 2: Student dashboard with useRef toast timers & celebratory confetti
-            └── ComingSoon.jsx          # Role-aware placeholder for Admin and Recruiter portals (guarded)
+            ├── Login.jsx               # Page 1: Split desktop layout, role tabs, login/signup toggle, quick demo
+            ├── StudentDashboard.jsx    # Page 2: Student dashboard with "Jobs for you" AI section & application tracker
+            ├── RecruiterDashboard.jsx  # Page 3: Recruiter portal with vacancy management & talent pipeline
+            └── ComingSoon.jsx          # Role-aware placeholder for Admin accreditation portal
 ```
 
 ---
@@ -153,19 +166,47 @@ Protected by `ProtectedRoute.jsx` (redirects unauthenticated users to `/`).
      - `02` SHA-256 Hash Minted
      - `03` Recruiter Instant Scan
 
-7. **Toast Notifications**:
+7. **"Jobs for You" & Algorithmic Skill Matching**:
+   - Eyebrow: `MATCHED TO YOUR VERIFIED SKILLS` → Heading: `Jobs picked *for you.*`
+   - Pure matching algorithm (`src/utils/matchJobs.js`):
+     - Extract verified skills exclusively from `Approved` activities.
+     - Match Score (0-100) = `70% * (matched required / total required) + 30% * (matched preferred / total preferred)`.
+     - Ranked descending; >=50% designated as "Recommended".
+   - Filters: Type (*All, Full-time, Internship, Part-time*), Mode (*All, Remote, Hybrid, On-site*), Recommended only toggle, Search box.
+   - Job cards: Company initial avatar, title, salary, deadline, color-coded match badge, matched vs missing skills (+N more).
+   - "View details" modal with full description, skill breakdown, and actionable gap-closing recommendations.
+   - One-click application with confirmation modal and live pipeline status updates.
+   - **My Applications Tracker**: Real-time 4-step progress pipeline (*Applied → Shortlisted → Interviewing → Hired*) or rose *Not selected* state.
+
+8. **Toast Notifications**:
    - Managed via a `useRef` timer (`toastTimeoutRef`) ensuring consecutive toasts refresh cleanly without premature timer dismissals, with cleanup on unmount.
    - Container enhanced with `aria-live="polite"`.
 
-8. **Footer**:
+9. **Footer**:
    - Minimalist accreditation references, privacy, terms, and copyright notices.
 
-### Page 3: Coming Soon Portal (`/coming-soon?role=admin` or `recruiter`)
+### Page 3: Recruiter Verification & Talent Desk (`/recruiter`)
+Protected by `ProtectedRoute.jsx` (accessible exclusively to `role="recruiter"`).
+
+1. **Recruiter Welcome Hero**:
+   - Greeting: `"Welcome back, Tanya."` with organization attribution (`Apex Systems & AI Labs`).
+   - 4 Top-line metrics: *Open Postings*, *Total Applicants*, *Shortlisted Candidates*, *Offers Extended*.
+2. **Post a Job Form (Collapsible)**:
+   - Inputs with connected `htmlFor`/`id` labels and inline `role="alert"` validation.
+   - `SkillTagInput` component: Type and press Enter or pick from autocomplete vocabulary; click `x` to remove.
+   - Pre-fills company name from recruiter's profile.
+3. **Institutional Vacancy Postings Grid**:
+   - Status badge (*Open* in mint / *Closed* in rose), applicants count, compensation, and one-click Close/Reopen toggle.
+   - Selecting a vacancy dynamically filters the talent pool below.
+4. **Verified Candidate Stack**:
+   - Applicants ranked by match score.
+   - Displays candidate institution, matched skills chips, and verified on-chain proofs count.
+   - **"View Verified Portfolio" Modal**: Inspects candidate's approved activities with short SHA-256 hash chips and `"Demo data: not a live blockchain record"` banner.
+   - **Interactive Pipeline Status Selector**: Move candidate through *Applied → Shortlisted → Interviewing → Hired* or *Rejected*. Updates reflect immediately in the student's dashboard via shared `JobsContext`.
+
+### Page 4: Admin Accreditation Portal (`/coming-soon?role=admin`)
 - **Route Guard**: Direct visits while logged out immediately redirect to `/`.
-- Uses `currentRole` directly from authentication state to display appropriate module previews:
-  - **Admin**: NAAC Criterion 5 & NIRF automated export engine, faculty approval workflows, state EduLedger consensus monitoring.
-  - **Recruiter**: Verified talent discovery search, ATS integrations, batch background credential check.
-- Interactive CTA to switch directly to the Student Dashboard demo.
+- Preview of NAAC Criterion 5 and NIRF automated aggregation workflows.
 
 ---
 
@@ -207,14 +248,15 @@ While this project is strictly **Frontend-Only**, integration points are prepare
 
 ## ✅ Quality Assurance & Verification Results
 
-- **Linter Check**: Passed `npm run lint` with **0 warnings and 0 errors**.
-- **Production Build**: Verified with `npm run build` in `frontend/`. Compiled cleanly in 12.62s with **0 syntax or bundling errors**.
-- **Automated Browser Test Suite**:
-  - **Student Sign-up**: Registered `"Priya Verma"` (`2023BCSE099`, `NIT Srinagar`); dashboard displayed `"Welcome back, Priya."`.
-  - **PDF & Preview Fallback**: Submitted PDF proof; `ProofModal` rendered the styled placeholder card without external image calls.
-  - **Toast Overlap**: Rapid clicks on copy actions refreshed toast timers smoothly with `useRef` without premature dismissals.
-  - **Keyboard Accessibility**: Verified full keyboard navigation (Tab/Shift+Tab, Enter/Space on drop zone, focus rings). "Forgot password?" rendered custom toast.
-  - **Route Protection**: Verified that `/student` and `/coming-soon` reject unauthenticated access and redirect to `/`.
+- **Linter Check**: Passed `npm run lint` (`oxlint`) with **0 warnings and 0 errors** across 29 files.
+- **Production Build**: Verified with `npm run build` (`vite build`) in `frontend/`. Compiled cleanly in 24.13s with **0 syntax or bundling errors**, producing code-split chunks for `StudentDashboard`, `RecruiterDashboard`, and `ComingSoon` via `React.lazy` + `Suspense`.
+- **End-to-End Browser Verification**:
+  - **Real Relative Dates & Deadlines**: Open jobs have future deadlines; expired/closed jobs (`job-08`, `job-07`) cleanly display `Expired` / `Closed` badges with disabled Apply actions.
+  - **Dynamic Applicant Snapshots**: Newly signed-up student `"Priya Verma"` applied to an open role; recruiter dashboard displays her verified credentials count, skills, and credential modal accurately.
+  - **Enforced Deadline Validation**: Jobs posted with past deadlines are automatically flagged as expired, blocking student submissions with real-time toast feedback.
+  - **Student Sign-up & Profile Merging**: Registered `"Priya Verma"` (`NIT Srinagar`); dashboard displays `"Welcome back, Priya."`.
+  - **PDF & Preview Fallback**: Submitted PDF proof; `ProofModal` renders the styled placeholder card without external image calls.
+  - **Route Protection**: Verified that `/student`, `/recruiter`, and `/coming-soon` enforce role-based access.
 
 ---
 

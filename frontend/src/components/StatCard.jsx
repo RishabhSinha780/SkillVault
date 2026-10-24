@@ -7,7 +7,8 @@ import {
   XCircle, 
   ShieldCheck, 
   TrendingUp, 
-  Sparkles 
+  Sparkles,
+  Briefcase
 } from 'lucide-react';
 
 // Animated counter hook
@@ -35,7 +36,7 @@ const useCounter = (end, duration = 1200) => {
   return count;
 };
 
-export const StatCard = ({ activities = [], verifiedScore = 94 }) => {
+export const StatCard = ({ activities = [], verifiedScore = 94, recommendedJobsCount }) => {
   const total = activities.length;
   const approved = activities.filter((a) => a.status === 'Approved').length;
   const pending = activities.filter((a) => a.status === 'Pending').length;
@@ -176,9 +177,17 @@ export const StatCard = ({ activities = [], verifiedScore = 94 }) => {
           <p className="text-xs text-[#9FB0AD] mt-1">
             Weighted index based on NAAC Criterion 5 & peer benchmarks.
           </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#172120] border border-white/[0.08] text-[10px] text-[#B7F34A]">
-            <ShieldCheck className="w-3 h-3" />
-            <span>Top 5% Cohort Rank</span>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#172120] border border-white/[0.08] text-[10px] text-[#B7F34A]">
+              <ShieldCheck className="w-3 h-3" />
+              <span>Top 5% Cohort Rank</span>
+            </div>
+            {recommendedJobsCount !== undefined && (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#172120] border border-[#B7F34A]/30 text-[10px] text-[#B7F34A]">
+                <Briefcase className="w-3 h-3" />
+                <span>{recommendedJobsCount} Matched Openings</span>
+              </div>
+            )}
           </div>
         </div>
 

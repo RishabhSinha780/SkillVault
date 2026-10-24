@@ -28,7 +28,7 @@ export const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
         {/* Brand Logo */}
         <Link 
-          to={currentRole === 'student' ? '/student' : '/'} 
+          to={currentRole === 'student' ? '/student' : currentRole === 'recruiter' ? '/recruiter' : '/'} 
           className="flex items-center gap-3 group focus:outline-none"
         >
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#B7F34A] to-[#86C227] flex items-center justify-center text-[#172120] shadow-[0_0_20px_rgba(183,243,74,0.3)] transition-transform duration-200 group-hover:scale-105">
@@ -75,6 +75,12 @@ export const Navbar = () => {
               className="px-4 py-1.5 text-xs font-medium text-[#9FB0AD] hover:text-[#F3F1EA] hover:bg-white/[0.04] rounded-full transition-colors cursor-pointer"
             >
               AI Skill-Gap
+            </button>
+            <button
+              onClick={() => scrollToSection('jobs-section')}
+              className="px-4 py-1.5 text-xs font-medium text-[#9FB0AD] hover:text-[#F3F1EA] hover:bg-white/[0.04] rounded-full transition-colors cursor-pointer"
+            >
+              Jobs
             </button>
             <button
               onClick={() => scrollToSection('portfolio-section')}
@@ -142,7 +148,16 @@ export const Navbar = () => {
                     </div>
 
                     <div className="py-1">
-                      {isStudentPage ? (
+                      {currentRole === 'recruiter' ? (
+                        <Link
+                          to="/recruiter"
+                          onClick={() => setDropdownOpen(false)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#F3F1EA] hover:bg-white/[0.05] rounded-xl transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-[#B7F34A]" />
+                          Recruiter Desk
+                        </Link>
+                      ) : isStudentPage ? (
                         <button
                           onClick={() => {
                             setDropdownOpen(false);

@@ -163,7 +163,11 @@ export const Login = () => {
           navigate(fromPath, { replace: true });
           return;
         }
-        if ((selectedRole === 'admin' || selectedRole === 'recruiter') && fromPath.startsWith('/coming-soon')) {
+        if (selectedRole === 'recruiter' && fromPath.startsWith('/recruiter')) {
+          navigate(fromPath, { replace: true });
+          return;
+        }
+        if (selectedRole === 'admin' && fromPath.startsWith('/coming-soon')) {
           navigate(fromPath, { replace: true });
           return;
         }
@@ -172,6 +176,8 @@ export const Login = () => {
       // Default routes
       if (selectedRole === 'student') {
         navigate('/student');
+      } else if (selectedRole === 'recruiter') {
+        navigate('/recruiter');
       } else {
         navigate(`/coming-soon?role=${selectedRole}`);
       }
