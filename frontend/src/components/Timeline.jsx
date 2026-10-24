@@ -15,7 +15,8 @@ import {
   ShieldCheck, 
   Calendar,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  RotateCcw
 } from 'lucide-react';
 
 const CATEGORY_ICONS = {
@@ -37,7 +38,12 @@ const CATEGORIES = [
   'Volunteering',
 ];
 
-export const Timeline = ({ activities = [], onSelectProof }) => {
+export const Timeline = ({
+  activities = [],
+  onSelectProof,
+  onResubmit,
+  highlightedActivityId = null
+}) => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,7 +74,7 @@ export const Timeline = ({ activities = [], onSelectProof }) => {
         const query = searchQuery.toLowerCase();
         const matchesTitle = item.title?.toLowerCase().includes(query);
         const matchesDesc = item.description?.toLowerCase().includes(query);
-        const matchesApprover = item.approver?.toLowerCase().includes(query);
+        const matchesApprover = (item.reviewedBy || item.approver)?.toLowerCase().includes(query);
         const matchesCat = item.category?.toLowerCase().includes(query);
         if (!matchesTitle && !matchesDesc && !matchesApprover && !matchesCat) {
           return false;
@@ -84,8 +90,18 @@ export const Timeline = ({ activities = [], onSelectProof }) => {
     return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
   };
 
+  const handleResubmitClick = (activity) => {
+    if (onResubmit) {
+      onResubmit(activity);
+    }
+    const uploadEl = document.getElementById('upload-section');
+    if (uploadEl) {
+      uploadEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
-    <section id="activities-section" className="my-16">
+    <section id="activities-section" className="my-16 scroll-mt-24">
       {/* Section Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
@@ -106,6 +122,7 @@ export const Timeline = ({ activities = [], onSelectProof }) => {
           {/* Category Dropdown */}
           <div className="relative">
             <select
+              aria-label="Filter activities by Category"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="bg-[#1E2B2A] border border-white/10 hover:border-white/20 text-[#F3F1EA] text-xs rounded-full px-4 py-2 pr-8 outline-none appearance-none cursor-pointer transition-colors"
@@ -142,6 +159,7 @@ export const Timeline = ({ activities = [], onSelectProof }) => {
           return (
             <button
               key={status}
+              type="button"
               onClick={() => setStatusFilter(status)}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
                 isActive
@@ -173,6 +191,7 @@ export const Timeline = ({ activities = [], onSelectProof }) => {
             Try resetting your category or status filters to view all recorded credentials.
           </p>
           <button
+            type="button"
             onClick={() => {
               setStatusFilter('All');
               setSelectedCategory('All Categories');
@@ -191,14 +210,29 @@ export const Timeline = ({ activities = [], onSelectProof }) => {
             const isApproved = act.status === 'Approved';
             const isPending = act.status === 'Pending';
             const isRejected = act.status === 'Rejected';
+            const isHighlighted = highlightedActivityId === act.id;
+
+            const reviewerName = act.reviewedBy || act.approver || 'Departmental Reviewer';
+            const approvalDate = act.reviewedAt
+              ? new Date(act.reviewedAt).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric'
+                })
+              : act.formattedDate || act.date;
+
+            const realHash = act.proof?.hash || act.blockchainHash;
 
             return (
               <motion.div
                 key={act.id}
+                id={`activity-${act.id}`}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.25, delay: index * 0.04 }}
-                className="relative group"
+                transition={{ duration: 0.25, delay: index * 0.03 }}
+                className={`relative group scroll-mt-28 ${
+                  isHighlighted ? 'ring-2 ring-[#B7F34A] rounded-[26px] p-0.5' : ''
+                }`}
               >
                 {/* Timeline node icon */}
                 <div
@@ -214,7 +248,13 @@ export const Timeline = ({ activities = [], onSelectProof }) => {
                 </div>
 
                 {/* Timeline Card */}
-                <div className="rounded-[24px] bg-[#1E2B2A] border border-white/[0.08] hover:border-white/20 p-5 sm:p-6 transition-all shadow-md group-hover:shadow-xl">
+                <div
+                  className={`rounded-[24px] bg-[#1E2B2A] border p-5 sm:p-6 transition-all shadow-md group-hover:shadow-xl ${
+                    isHighlighted
+                      ? 'border-[#B7F34A] bg-[#223331]'
+                      : 'border-white/[0.08] hover:border-white/20'
+                  }`}
+                >
                   {/* Top line: Category, Date, Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2">
@@ -238,7 +278,7 @@ export const Timeline = ({ activities = [], onSelectProof }) => {
                       {isPending && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
                           <Clock className="w-3 h-3" />
-                          <span>Pending Faculty Review</span>
+                          <span>Awaiting review</span>
                         </span>
                       )}
                       {isRejected && (
@@ -258,35 +298,86 @@ export const Timeline = ({ activities = [], onSelectProof }) => {
                     {act.description}
                   </p>
 
-                  {/* Rejection notice if rejected */}
-                  {isRejected && act.rejectionReason && (
-                    <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-semibold">Reviewer Feedback:</span> {act.rejectionReason}
+                  {/* Skills tags if available */}
+                  {(act.skillsAwarded?.length > 0 || act.skills?.length > 0) && (
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {(act.skillsAwarded?.length > 0 ? act.skillsAwarded : act.skills).map((sk) => (
+                        <span
+                          key={sk}
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                            isApproved
+                              ? 'bg-[#172120] text-[#B7F34A] border border-[#B7F34A]/25'
+                              : 'bg-white/[0.04] text-[#9FB0AD] border border-white/[0.06]'
+                          }`}
+                        >
+                          {isApproved ? `+${sk}` : sk}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Rejection notice if rejected: Reason + Reviewer + Resubmit button */}
+                  {isRejected && (
+                    <div className="mt-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2 text-rose-300">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-semibold">Reviewer Feedback:</span>{' '}
+                            {act.rejectionReason || 'Submission did not meet verification criteria.'}
+                          </div>
+                        </div>
+
+                        {/* Resubmit CTA Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleResubmitClick(act)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 hover:bg-rose-400 text-white font-semibold text-xs transition-colors shrink-0 cursor-pointer shadow-sm"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Resubmit</span>
+                        </button>
+                      </div>
+
+                      <div className="text-[11px] text-[#9FB0AD] pt-1 border-t border-rose-500/15">
+                        Reviewed by <span className="text-[#F3F1EA] font-medium">{reviewerName}</span> on{' '}
+                        <span className="font-mono text-[#F3F1EA]">{approvalDate}</span>
                       </div>
                     </div>
                   )}
 
-                  {/* Bottom Line & Blockchain Actions */}
+                  {/* Bottom Line: Evaluator, Approval Date, Real Hash & Proof Modal */}
                   <div className="mt-4 pt-4 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-xs text-[#9FB0AD] flex items-center gap-1.5">
-                      <span className="text-[#9FB0AD]/60">Evaluator:</span>
-                      <span className="font-medium text-[#F3F1EA]">{act.approver}</span>
+                    <div className="text-xs text-[#9FB0AD] flex flex-wrap items-center gap-2">
+                      {isApproved ? (
+                        <>
+                          <span className="text-[#9FB0AD]/60">Verified by:</span>
+                          <span className="font-medium text-[#F3F1EA]">{reviewerName}</span>
+                          <span className="text-white/20">·</span>
+                          <span className="text-[#9FB0AD] font-mono">{approvalDate}</span>
+                        </>
+                      ) : isPending ? (
+                        <span className="text-amber-300/80 italic flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" /> Awaiting faculty reviewer assignment
+                        </span>
+                      ) : (
+                        <span className="text-rose-300/80">Evaluation Complete</span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-3">
-                      {/* Blockchain hash chip */}
-                      {isApproved && (
+                      {/* Blockchain real hash chip */}
+                      {isApproved && realHash && (
                         <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#172120] border border-[#B7F34A]/25 text-[11px] font-mono text-[#B7F34A]">
                           <ShieldCheck className="w-3.5 h-3.5" />
-                          <span>{formatShortHash(act.blockchainHash)}</span>
+                          <span>{formatShortHash(realHash)}</span>
                         </div>
                       )}
 
                       {/* View Proof Button */}
                       {isApproved && (
                         <button
+                          type="button"
                           onClick={() => onSelectProof(act)}
                           className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#B7F34A]/10 hover:bg-[#B7F34A] text-[#B7F34A] hover:text-[#172120] border border-[#B7F34A]/30 text-xs font-semibold transition-all cursor-pointer shadow-sm"
                         >

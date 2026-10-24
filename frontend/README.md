@@ -45,15 +45,44 @@ The application will be accessible at `http://localhost:5173`.
 ## 🗺️ Application Routing
 
 - **`/`**: Split-panel Login & Registration screen with 3 role tabs (Student, Recruiter, Admin), password show/hide toggle, demo quick-fill credentials, and inline validations.
-- **`/student`**: Client-side protected Student Dashboard with Welcome Hero, Stat cards (with recommended jobs count), S3-ready Upload card, Activity timeline with blockchain audit proofs, AI Skill-Gap Radar chart, "Jobs for you" AI-ranked matching section with live application tracker, and Recruiter QR code generator.
+- **`/student`**: Client-side protected Student Dashboard with Welcome Hero, Stat cards (with recommended jobs count), S3-ready Upload card with client SHA-256 hashing, Activity timeline with blockchain audit proofs & 1-click Resubmit on rejected credentials, notification bell with unread badge, AI Skill-Gap Radar chart, "Jobs for you" AI-ranked matching section with live application tracker, and Recruiter QR code generator.
 - **`/recruiter`**: Client-side protected Recruiter Dashboard with posting management, dynamic job creation form with autocomplete skill tag inputs, status toggling (Open/Closed), and verified applicant review pipeline (Applied → Shortlisted → Interviewing → Hired / Rejected).
-- **`/coming-soon?role=admin`**: Dedicated placeholder portal for institutional accreditation teams and NIRF reports.
+- **`/admin`**: Client-side protected College Admin Verification Desk with live metrics (Pending, Approved, Rejected, Approval Rate, Reviewed Today), queue filtering & search, split-panel review modal with document preview & SHA-256 checksum inspector, skill endorsement tag input, canonical hash minting, inline rejection feedback, and NAAC/NIRF accreditation CSV exporter.
+- **`/coming-soon`**: Dedicated placeholder portal for future state-level institutional NIRF modules.
+
+---
+
+## 🔄 Verification & Hash Minting Workflow
+
+```
+[ Student ]
+    │ Uploads certificate / achievement proof
+    │ Client computes fileHash = SHA-256(ArrayBuffer)
+    ▼
+[ Activities Store ('skillvault_activities') ]
+    │ Status: 'Pending'
+    ▼
+[ College Admin Verification Desk ('/admin') ]
+    │ Filters queue by category/search (sorted oldest first)
+    │ Inspects file preview + SHA-256 binary checksum
+    │ Sets verified skills to award from SKILL_VOCABULARY
+    ├──► [ APPROVE ]:
+    │       Computes proofHash = SHA-256(canonicalJson({ ...activity, skillsAwarded }))
+    │       Mints ledger proof: { hash, timestamp, blockNumber, network }
+    │       Status -> 'Approved'
+    │       Student profile updated -> Raises job match scores in real time
+    │       Pushes unread notification to student bell dropdown
+    └──► [ REJECT ]:
+            Records mandatory reviewer reason (min 10 chars)
+            Status -> 'Rejected'
+            Student sees reviewer feedback in Timeline and can 1-click "Resubmit"
+```
 
 ---
 
 ## 🔌 Backend & API Integration Roadmap
 
-All mock data is currently encapsulated in `src/data/mock.js` and `src/data/jobsMock.js`, and state is managed via `AuthContext.jsx` and `JobsContext.jsx`. The exact touchpoints where real backend services will be plugged in are detailed below:
+All mock data is currently encapsulated in `src/data/mock.js`, `src/data/jobsMock.js`, and `src/data/activitiesMock.js`, and state is managed via `AuthContext.jsx`, `ActivitiesContext.jsx`, `NotificationsContext.jsx`, and `JobsContext.jsx`. The exact touchpoints where real backend services will be plugged in are detailed below:
 
 ### 1. Authentication & Role-Based Access Control (RBAC)
 - **Location**: `src/context/AuthContext.jsx` -> `login()` & `logout()`

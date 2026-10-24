@@ -1,6 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationsProvider } from './context/NotificationsContext';
+import { ActivitiesProvider } from './context/ActivitiesContext';
 import { JobsProvider } from './context/JobsContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { Login } from './pages/Login';
@@ -10,6 +12,9 @@ const StudentDashboard = lazy(() =>
 );
 const RecruiterDashboard = lazy(() =>
   import('./pages/RecruiterDashboard').then((module) => ({ default: module.RecruiterDashboard }))
+);
+const AdminDashboard = lazy(() =>
+  import('./pages/AdminDashboard').then((module) => ({ default: module.AdminDashboard }))
 );
 const ComingSoon = lazy(() =>
   import('./pages/ComingSoon').then((module) => ({ default: module.ComingSoon }))
@@ -29,42 +34,56 @@ function PageLoadingFallback() {
 function App() {
   return (
     <AuthProvider>
-      <JobsProvider>
-        <Router>
-          <Suspense fallback={<PageLoadingFallback />}>
-            <Routes>
-              {/* Page 1: Login */}
-              <Route path="/" element={<Login />} />
+      <NotificationsProvider>
+        <ActivitiesProvider>
+          <JobsProvider>
+            <Router>
+              <Suspense fallback={<PageLoadingFallback />}>
+                <Routes>
+                  {/* Page 1: Login */}
+                  <Route path="/" element={<Login />} />
 
-              {/* Page 2: Student Dashboard (Protected for students) */}
-              <Route
-                path="/student"
-                element={
-                  <ProtectedRoute requiredRole="student">
-                    <StudentDashboard />
-                  </ProtectedRoute>
-                }
-              />
+                  {/* Page 2: Student Dashboard (Protected for students) */}
+                  <Route
+                    path="/student"
+                    element={
+                      <ProtectedRoute requiredRole="student">
+                        <StudentDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
 
-              {/* Page 3: Recruiter Dashboard (Protected for recruiters) */}
-              <Route
-                path="/recruiter"
-                element={
-                  <ProtectedRoute requiredRole="recruiter">
-                    <RecruiterDashboard />
-                  </ProtectedRoute>
-                }
-              />
+                  {/* Page 3: Recruiter Dashboard (Protected for recruiters) */}
+                  <Route
+                    path="/recruiter"
+                    element={
+                      <ProtectedRoute requiredRole="recruiter">
+                        <RecruiterDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
 
-              {/* Placeholder for Admin accreditation & NIRF reports */}
-              <Route path="/coming-soon" element={<ComingSoon />} />
+                  {/* Page 4: Admin Dashboard (Protected for college admin) */}
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <AdminDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
 
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </Router>
-      </JobsProvider>
+                  {/* Placeholder for NIRF reports & institutional accreditation */}
+                  <Route path="/coming-soon" element={<ComingSoon />} />
+
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
+            </Router>
+          </JobsProvider>
+        </ActivitiesProvider>
+      </NotificationsProvider>
     </AuthProvider>
   );
 }

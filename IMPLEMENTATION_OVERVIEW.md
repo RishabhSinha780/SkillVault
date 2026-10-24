@@ -35,22 +35,26 @@ Project/
         ├── index.css                   # PointoPark design system, custom scrollbars, subtle radial glows
         ├── context/
         │   ├── AuthContext.jsx         # Role state, clean data merging, credential sanitization
+        │   ├── ActivitiesContext.jsx   # Shared activities store, localStorage persistence, approve/reject minting
+        │   ├── NotificationsContext.jsx # Student notification store with unread counts & bell dropdown
         │   └── JobsContext.jsx         # Jobs & applications state, localStorage persistence, pipeline actions
         ├── routes/
-        │   └── ProtectedRoute.jsx      # Client-side route guard enforcing authentication & role access
+        │   └── ProtectedRoute.jsx      # Client-side route guard enforcing authentication & role access (/student, /recruiter, /admin)
         ├── utils/
         │   ├── dates.js                # Real local ISO date helpers (todayISO, addDays, isPastDeadline)
+        │   ├── hash.js                 # Pure cryptographic helpers: deterministic canonicalJson & sha256Hex (Web Crypto)
         │   └── matchJobs.js            # Pure function: 70% required + 30% preferred verified skill matching
         ├── data/
         │   ├── mock.js                 # Realistic student record, timeline items, radar datasets & career paths
+        │   ├── activitiesMock.js       # Migrated student activities & 6 multi-institution pending submissions across J&K HEIs
         │   └── jobsMock.js             # 8 seeded jobs, applicant pool, skill vocabulary, sample applications
         ├── components/
-        │   ├── Navbar.jsx              # Sticky header with shield check logo, fast section scrolling & user menu
+        │   ├── Navbar.jsx              # Sticky header with shield check logo, notification bell, & user profile menu
         │   ├── Footer.jsx              # Institutional copyright, accreditation policies, & security labels
         │   ├── StatCard.jsx            # Animated metric counters, verified score ring (94/100) & recommended jobs count
-        │   ├── UploadCard.jsx          # Accessible file upload zone, PDF/image handling & S3 presigned URL comments
-        │   ├── Timeline.jsx            # Vertical audit timeline, category & status filters, search input
-        │   ├── ProofModal.jsx          # On-chain proof inspection modal with styled PDF placeholder & SHA-256 hash
+        │   ├── UploadCard.jsx          # Accessible file upload zone, client SHA-256 binary hashing, SkillTagInput, resubmit prefill
+        │   ├── Timeline.jsx            # Vertical audit timeline, category & status filters, reviewer feedback & 1-click Resubmit
+        │   ├── ProofModal.jsx          # On-chain proof inspection modal with real proof.hash, reviewedAt, reviewer & fileHash
         │   ├── SkillRadar.jsx          # Dark-mode Recharts Radar Chart, skill gap progress bars & career paths
         │   ├── PortfolioQR.jsx         # Scannable QRCodeSVG, one-click copyable link & 01-02-03 step cards
         │   ├── NotificationToast.jsx   # Interactive floating toast with aria-live="polite"
@@ -65,7 +69,36 @@ Project/
             ├── Login.jsx               # Page 1: Split desktop layout, role tabs, login/signup toggle, quick demo
             ├── StudentDashboard.jsx    # Page 2: Student dashboard with "Jobs for you" AI section & application tracker
             ├── RecruiterDashboard.jsx  # Page 3: Recruiter portal with vacancy management & talent pipeline
-            └── ComingSoon.jsx          # Role-aware placeholder for Admin accreditation portal
+            ├── AdminDashboard.jsx      # Page 4: College Admin verification desk with split-view review, hash minting, CSV export
+            └── ComingSoon.jsx          # Placeholder for future state-level institutional NIRF modules
+```
+
+---
+
+## 🔄 Verification & Hash Minting Workflow
+
+```
+[ Student ]
+    │ Uploads certificate / achievement proof
+    │ Client computes fileHash = SHA-256(ArrayBuffer) via Web Crypto
+    ▼
+[ Activities Store ('skillvault_activities') ]
+    │ Status: 'Pending'
+    ▼
+[ College Admin Verification Desk ('/admin') ]
+    │ Filters queue by category/search (sorted oldest first)
+    │ Inspects file preview + SHA-256 binary checksum
+    │ Sets verified skills to award from SKILL_VOCABULARY
+    ├──► [ APPROVE ]:
+    │       Computes proofHash = SHA-256(canonicalJson({ ...activity, skillsAwarded }))
+    │       Mints ledger proof: { hash, timestamp, blockNumber, network }
+    │       Status -> 'Approved'
+    │       Student profile updated -> Raises job match scores in real time
+    │       Pushes unread notification to student bell dropdown
+    └──► [ REJECT ]:
+            Records mandatory reviewer reason (min 10 chars)
+            Status -> 'Rejected'
+            Student sees reviewer feedback in Timeline and can 1-click "Resubmit"
 ```
 
 ---

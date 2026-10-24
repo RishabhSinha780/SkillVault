@@ -8,6 +8,9 @@ import {
   Loader2,
   CheckCircle2
 } from 'lucide-react';
+import { SkillTagInput } from './jobs/SkillTagInput';
+import { sha256Hex } from '../utils/hash';
+import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = [
   'Technical',
@@ -18,11 +21,14 @@ const CATEGORIES = [
   'Internship'
 ];
 
-export const UploadCard = ({ onAddActivity }) => {
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Technical');
+export const UploadCard = ({ onAddActivity, initialValues = null }) => {
+  const { currentUser } = useAuth();
+
+  const [title, setTitle] = useState(() => initialValues?.title || '');
+  const [category, setCategory] = useState(() => initialValues?.category || 'Technical');
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(() => initialValues?.description || '');
+  const [skills, setSkills] = useState(() => (Array.isArray(initialValues?.skills) ? initialValues.skills : []));
   const [file, setFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -82,10 +88,46 @@ export const UploadCard = ({ onAddActivity }) => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+const downscaleImage = (imageFile, maxDim = 1200, quality = 0.8) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.onerror = () => reject(new Error('Failed to render image for compression'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file for compression'));
+    reader.readAsDataURL(imageFile);
+  });
+};
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
 
+    if (!file) {
+      setErrorMessage('Please attach a verification proof file (PDF or Image).');
+      return;
+    }
     if (!title.trim()) {
       setErrorMessage('Please provide an achievement title.');
       return;
@@ -101,68 +143,80 @@ export const UploadCard = ({ onAddActivity }) => {
      * =========================================================================
      * BACKEND INTEGRATION PLACEHOLDER: AWS S3 PRESIGNED URL UPLOAD
      * =========================================================================
-     * When backend is connected, file upload flow will proceed as follows:
-     * 
-     * 1. Request presigned URL from Backend:
-     *    const res = await api.post('/api/v1/storage/presigned-url', {
-     *       filename: file.name,
-     *       fileType: file.type,
-     *       category: category
-     *    });
-     *    const { presignedUrl, s3FileKey } = res.data;
-     * 
-     * 2. Direct S3 Upload via PUT request:
-     *    await fetch(presignedUrl, {
-     *       method: 'PUT',
-     *       headers: { 'Content-Type': file.type },
-     *       body: file
-     *    });
-     * 
-     * 3. Submit Achievement metadata & S3 key to GraphQL / REST API:
-     *    await api.post('/api/v1/activities', {
-     *       title, category, date, description, s3FileKey, studentId
-     *    });
+     * 1. Request presigned URL from Backend (POST /api/v1/storage/presigned-url)
+     * 2. Direct S3 Upload via PUT request with binary body
+     * 3. Submit Achievement metadata & S3 key to REST API (POST /api/v1/activities)
      * =========================================================================
      */
 
-    // Simulated network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      // 1. Compute raw file SHA-256 digest from ORIGINAL file bytes
+      const arrayBuffer = await file.arrayBuffer();
+      const fileHash = await sha256Hex(arrayBuffer);
 
-    const isImage = file && file.type.startsWith('image/');
-    const fileType = isImage ? 'image' : 'pdf';
-    const fileUrl = isImage ? filePreview : null;
+      // 2. For image uploads, downscale to max 1200px width/height and re-encode as JPEG 0.8
+      const isImage = file.type.startsWith('image/');
+      const fileType = isImage ? 'image' : 'pdf';
+      let fileUrl = null;
 
-    const newActivity = {
-      id: `act-${Date.now()}`,
-      title: title.trim(),
-      category,
-      date,
-      formattedDate: new Date(date).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      }),
-      status: 'Pending',
-      approver: 'Pending Faculty Verification',
-      approverRole: 'Departmental Academic & Sports Review Committee',
-      description: description.trim(),
-      proofType: file ? file.name : 'Uploaded Digital Verification File',
-      issuer: 'Self-Submitted (Awaiting Dean/HOD Endorsement)',
-      fileUrl,
-      fileType,
-      fileName: file ? file.name : (fileType === 'image' ? 'achievement_proof.png' : 'achievement_proof.pdf'),
-      skillsAwarded: [category + ' Excellence', 'Verified Record']
-    };
+      if (isImage) {
+        fileUrl = await downscaleImage(file, 1200, 0.8);
+      } else {
+        fileUrl = null;
+      }
 
-    onAddActivity(newActivity);
+      // Simulated network latency
+      await new Promise((resolve) => setTimeout(resolve, 600));
 
-    // Reset Form
-    setTitle('');
-    setDescription('');
-    setCategory('Technical');
-    setFile(null);
-    setFilePreview(null);
-    setIsSubmitting(false);
+      const studentEmail = currentUser?.email || 'aarav.sharma@nitsri.ac.in';
+      const studentName = currentUser?.name || 'Aarav Sharma';
+      const institution = currentUser?.institution || 'National Institute of Technology, Srinagar';
+
+      const newActivity = {
+        id: `act-${Date.now()}`,
+        studentEmail,
+        studentName,
+        institution,
+        title: title.trim(),
+        category,
+        date,
+        formattedDate: new Date(date).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        }),
+        status: 'Pending',
+        description: description.trim(),
+        skills: [...skills],
+        skillsAwarded: [],
+        proofType: file ? file.name : 'Uploaded Digital Verification File',
+        issuer: 'Self-Submitted (Awaiting Dean/HOD Endorsement)',
+        fileUrl,
+        fileType,
+        fileName: file ? file.name : (fileType === 'image' ? 'achievement_proof.png' : 'achievement_proof.pdf'),
+        fileHash,
+        submittedAt: date,
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null,
+        proof: null
+      };
+
+      onAddActivity(newActivity);
+
+      // Reset Form
+      setTitle('');
+      setDescription('');
+      setCategory('Technical');
+      setSkills([]);
+      setFile(null);
+      setFilePreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to process file checksum.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -178,73 +232,60 @@ export const UploadCard = ({ onAddActivity }) => {
               <span>Accreditation Submission</span>
             </div>
             <h2 className="font-serif text-2xl sm:text-3xl font-semibold text-[#F3F1EA]">
-              Upload <span className="italic text-[#B7F34A]">Achievement</span>
+              Upload Credential <span className="italic text-[#B7F34A]">Proof</span>
             </h2>
-            <p className="text-xs text-[#9FB0AD] mt-1 max-w-xl">
-              Attach certificates, medals, or research papers. Once approved by faculty, an immutable SHA-256 block hash is automatically minted.
+            <p className="text-xs text-[#9FB0AD] mt-1">
+              Submit certificates, contest citations, research preprints, or sports citations for
+              faculty blockchain verification.
             </p>
-          </div>
-
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#172120] border border-white/[0.08] text-xs text-[#9FB0AD]">
-            <span className="w-2 h-2 rounded-full bg-[#B7F34A]"></span>
-            <span>NAAC Criterion 5 Compliant</span>
           </div>
         </div>
 
         {errorMessage && (
-          <div role="alert" className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+          <div
+            role="alert"
+            className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center gap-3 text-rose-300 text-xs animate-in fade-in"
+          >
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Drag & Drop Zone */}
+          {/* Drag & Drop File Upload Area */}
           <div>
-            <label htmlFor="achievement-file-input" className="block text-xs font-medium text-[#9FB0AD] mb-2 uppercase tracking-wider">
-              Certificate / Proof Document (PDF, PNG, JPG up to 10MB)
+            <label className="block text-xs font-medium text-[#9FB0AD] mb-2 uppercase tracking-wider">
+              Verification Proof File (PDF / Image) *
             </label>
 
             <div
-              tabIndex={0}
-              role="button"
-              aria-label="Upload certificate or proof document. Press enter or space to choose file."
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  fileInputRef.current?.click();
-                }
-              }}
-              className={`relative border-2 border-dashed rounded-[22px] p-6 sm:p-8 text-center cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-[#B7F34A] focus:ring-offset-2 focus:ring-offset-[#172120] ${
+              className={`relative border-2 border-dashed rounded-[24px] p-6 sm:p-8 transition-all text-center cursor-pointer ${
                 isDragging
-                  ? 'border-[#B7F34A] bg-[#B7F34A]/10 scale-[1.01]'
-                  : 'border-white/15 bg-[#172120]/60 hover:border-white/30 hover:bg-[#172120]'
+                  ? 'border-[#B7F34A] bg-[#B7F34A]/5'
+                  : 'border-white/10 hover:border-white/20 bg-[#172120]/60'
               }`}
             >
               <input
-                id="achievement-file-input"
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,image/png,image/jpeg,image/webp"
+                accept="application/pdf,image/png,image/jpeg,image/webp"
                 onChange={handleFileChange}
                 className="hidden"
+                id="file-upload"
               />
 
               {file ? (
-                <div 
-                  className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-xl bg-[#1E2B2A] border border-white/10" 
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center gap-3 overflow-hidden text-left">
+                <div className="flex items-center justify-between bg-[#1E2B2A] p-4 rounded-2xl border border-white/10 text-left">
+                  <div className="flex items-center gap-3">
                     {filePreview ? (
                       <img
                         src={filePreview}
                         alt="Preview"
-                        className="w-14 h-14 object-cover rounded-xl border border-white/10"
+                        className="w-14 h-14 rounded-xl object-cover border border-white/10"
                       />
                     ) : (
                       <div className="w-14 h-14 rounded-xl bg-[#263836] border border-white/10 flex items-center justify-center text-[#B7F34A]">
@@ -263,7 +304,10 @@ export const UploadCard = ({ onAddActivity }) => {
 
                   <button
                     type="button"
-                    onClick={handleRemoveFile}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveFile();
+                    }}
                     aria-label="Remove selected file"
                     className="p-2 text-[#9FB0AD] hover:text-rose-400 rounded-full hover:bg-white/[0.05] transition-colors cursor-pointer"
                   >
@@ -276,13 +320,14 @@ export const UploadCard = ({ onAddActivity }) => {
                     <UploadCloud className="w-7 h-7" />
                   </div>
                   <p className="text-sm font-semibold text-[#F3F1EA]">
-                    Drop your proof file here or <span className="text-[#B7F34A] underline underline-offset-4">browse files</span>
+                    Drop your proof file here or{' '}
+                    <span className="text-[#B7F34A] underline underline-offset-4">browse files</span>
                   </p>
                   <p className="text-xs text-[#9FB0AD]">
-                    Supports PDF citations, scanned certificates, and photo credentials
+                    Supports PDF citations, scanned certificates, and photo credentials (under 10MB)
                   </p>
                   <div className="mt-2 text-[10px] text-[#9FB0AD]/60 font-mono">
-                    (In production: Direct streaming via AWS S3 Presigned URL)
+                    Direct SHA-256 client hashing before departmental review
                   </div>
                 </div>
               )}
@@ -369,11 +414,23 @@ export const UploadCard = ({ onAddActivity }) => {
             </div>
           </div>
 
+          {/* Optional: Skills This Shows (SkillTagInput with SKILL_VOCABULARY) */}
+          <div>
+            <SkillTagInput
+              id="student-skills-shows-input"
+              label="Skills this shows (Optional)"
+              tags={skills}
+              onChange={setSkills}
+              placeholder="Tag skills demonstrated (e.g. React, Python, Edge AI)..."
+              helperText="Reviewing faculty can endorse or expand these tags into your verified skill radar upon approval."
+            />
+          </div>
+
           {/* Action Row */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
             <span className="text-xs text-[#9FB0AD] flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-[#B7F34A]" />
-              Submission will be queued for departmental reviewer approval.
+              Submission will be queued for college admin review and hashing.
             </span>
 
             <button
@@ -384,7 +441,7 @@ export const UploadCard = ({ onAddActivity }) => {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Submitting to Ledger...</span>
+                  <span>Computing Hash & Submitting...</span>
                 </>
               ) : (
                 <span>Submit for faculty approval →</span>

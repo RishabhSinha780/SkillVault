@@ -30,9 +30,12 @@ export const ComingSoon = () => {
     return <Navigate to="/student" replace />;
   }
 
-  // Use the logged-in role to choose the content instead of trusting the ?role= query param alone
-  const role = currentRole === 'admin' ? 'admin' : 'recruiter';
-  const isAdmin = role === 'admin';
+  // If logged in as admin, redirect to /admin
+  if (currentRole === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+
+  const isAdmin = false;
 
   const handleSwitchToStudent = async () => {
     await login({ role: 'student', email: 'aarav.sharma@nitsri.ac.in' });

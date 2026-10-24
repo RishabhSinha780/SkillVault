@@ -167,7 +167,7 @@ export const Login = () => {
           navigate(fromPath, { replace: true });
           return;
         }
-        if (selectedRole === 'admin' && fromPath.startsWith('/coming-soon')) {
+        if (selectedRole === 'admin' && fromPath.startsWith('/admin')) {
           navigate(fromPath, { replace: true });
           return;
         }
@@ -178,6 +178,8 @@ export const Login = () => {
         navigate('/student');
       } else if (selectedRole === 'recruiter') {
         navigate('/recruiter');
+      } else if (selectedRole === 'admin') {
+        navigate('/admin');
       } else {
         navigate(`/coming-soon?role=${selectedRole}`);
       }

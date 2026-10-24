@@ -9,20 +9,34 @@ import {
   UserCheck, 
   Award, 
   FileText, 
-  Cpu 
+  Cpu,
+  FileCode
 } from 'lucide-react';
 
 export const ProofModal = ({ item, isOpen, onClose }) => {
-  const [copied, setCopied] = useState(false);
+  const [copiedProofHash, setCopiedProofHash] = useState(false);
+  const [copiedFileHash, setCopiedFileHash] = useState(false);
 
   if (!isOpen || !item) return null;
 
-  const handleCopyHash = () => {
-    if (item.blockchainHash) {
-      navigator.clipboard.writeText(item.blockchainHash);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+  const proofHash = item.proof?.hash || item.blockchainHash || '0x7f4c9b21a8d3e9104fa2e17c09d57a22bc194de8f32194a0b5c1928374a5e6d1';
+  const reviewer = item.reviewedBy || item.approver || 'Dr. Farooq Ahmad (Dean of Academic Affairs)';
+  const approvalTimestamp = item.proof?.timestamp || item.reviewedAt || item.timestamp || item.date;
+  const fileHash = item.fileHash || null;
+  const blockNumber = item.proof?.blockNumber ? `Block #${item.proof.blockNumber.toLocaleString()}` : item.blockNumber || 'Block #1,849,204';
+  const network = item.proof?.network || item.network || 'Govt. J&K EduLedger (Proof-of-Authority)';
+
+  const handleCopyProofHash = () => {
+    navigator.clipboard.writeText(proofHash);
+    setCopiedProofHash(true);
+    setTimeout(() => setCopiedProofHash(false), 2000);
+  };
+
+  const handleCopyFileHash = () => {
+    if (!fileHash) return;
+    navigator.clipboard.writeText(fileHash);
+    setCopiedFileHash(true);
+    setTimeout(() => setCopiedFileHash(false), 2000);
   };
 
   return (
@@ -57,7 +71,7 @@ export const ProofModal = ({ item, isOpen, onClose }) => {
                     On-Chain Verified Record
                   </span>
                   <span className="text-[11px] font-mono text-[#9FB0AD]">
-                    {item.blockNumber || 'Block #1,849,204'}
+                    {blockNumber}
                   </span>
                   <span className="text-[10px] text-[#9FB0AD]/60 font-mono italic">
                     (Demo data: not a live blockchain record)
@@ -110,7 +124,7 @@ export const ProofModal = ({ item, isOpen, onClose }) => {
                 </span>
               </div>
               
-              {item.fileUrl ? (
+              {item.fileUrl && item.fileType === 'image' ? (
                 <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-[#141D1C] group">
                   <img
                     src={item.fileUrl}
@@ -124,7 +138,7 @@ export const ProofModal = ({ item, isOpen, onClose }) => {
                           {item.proofType || 'Official Institutional Credential'}
                         </p>
                         <p className="text-[11px] text-[#B7F34A]">
-                          Issued by: {item.issuer || 'Academic Verification Cell'}
+                          Student: {item.studentName || 'Student Verified'}
                         </p>
                       </div>
                       <span className="text-[11px] px-2.5 py-1 rounded-full bg-[#172120]/90 text-[#F3F1EA] border border-white/15 backdrop-blur-md">
@@ -142,11 +156,11 @@ export const ProofModal = ({ item, isOpen, onClose }) => {
                     {item.fileName || 'certificate_proof.pdf'}
                   </p>
                   <p className="text-xs text-[#9FB0AD] mt-1">
-                    PDF document · preview unavailable in demo
+                    Official PDF Document · Digital Cryptographic Hash Verified
                   </p>
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                     <span className="text-[11px] px-2.5 py-1 rounded-full bg-[#1E2B2A] text-[#9FB0AD] border border-white/[0.08]">
-                      {item.proofType || 'Accredited Institutional Document'}
+                      {item.category} Credential
                     </span>
                     <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-[#B7F34A] border border-[#B7F34A]/20">
                       SHA-256 Checksum Verified
@@ -156,18 +170,18 @@ export const ProofModal = ({ item, isOpen, onClose }) => {
               )}
             </div>
 
-            {/* Approval Details */}
+            {/* Approval Details & Reviewer */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-[#172120] rounded-2xl p-4 border border-white/[0.06]">
                 <div className="flex items-center gap-2 text-xs text-[#9FB0AD] mb-1">
                   <UserCheck className="w-4 h-4 text-[#B7F34A]" />
-                  <span>Approved By Faculty</span>
+                  <span>Approved By Reviewer</span>
                 </div>
                 <p className="text-sm font-semibold text-[#F3F1EA] mt-1">
-                  {item.approver}
+                  {reviewer}
                 </p>
                 <p className="text-[11px] text-[#9FB0AD]">
-                  {item.approverRole || 'Verified Departmental Signatory'}
+                  {item.approverRole || 'College Verification Desk / Department Head'}
                 </p>
               </div>
 
@@ -185,7 +199,7 @@ export const ProofModal = ({ item, isOpen, onClose }) => {
               </div>
             </div>
 
-            {/* Cryptographic Ledger Details */}
+            {/* Cryptographic Ledger Details (REAL proof.hash & file's fileHash) */}
             <div className="bg-[#15201F] rounded-2xl p-5 border border-[#B7F34A]/20 shadow-[0_0_20px_rgba(183,243,74,0.05)]">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#B7F34A] flex items-center gap-1.5">
@@ -196,35 +210,57 @@ export const ProofModal = ({ item, isOpen, onClose }) => {
                 </span>
               </div>
 
-              <div className="space-y-3 font-mono text-xs">
-                {/* Hash */}
+              <div className="space-y-4 font-mono text-xs">
+                {/* Minted Blockchain Proof Hash */}
                 <div>
                   <div className="text-[10px] text-[#9FB0AD] uppercase mb-1 flex items-center justify-between">
-                    <span>Cryptographic Digest (SHA-256)</span>
+                    <span>Minted Ledger Digest (SHA-256 Proof)</span>
                     <button
-                      onClick={handleCopyHash}
+                      onClick={handleCopyProofHash}
                       className="inline-flex items-center gap-1 text-[#B7F34A] hover:underline cursor-pointer"
                     >
-                      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      <span>{copied ? 'Copied' : 'Copy Hash'}</span>
+                      {copiedProofHash ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedProofHash ? 'Copied' : 'Copy'}</span>
                     </button>
                   </div>
                   <div className="p-2.5 rounded-xl bg-[#101716] border border-white/[0.08] text-[#F3F1EA] text-[11px] break-all select-all">
-                    {item.blockchainHash || '0x7f4c9b21a8d3e9104fa2e17c09d57a22bc194de8f32194a0b5c1928374a5e6d1'}
+                    {proofHash}
                   </div>
                   <div className="text-[10px] text-[#9FB0AD]/60 font-mono italic mt-1">
                     Demo data: not a live blockchain record
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] pt-1">
+                {/* Raw File Checksum Hash */}
+                <div>
+                  <div className="text-[10px] text-[#9FB0AD] uppercase mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <FileCode className="w-3 h-3 text-[#B7F34A]" /> Raw File Binary Checksum (fileHash)
+                    </span>
+                    {fileHash && (
+                      <button
+                        onClick={handleCopyFileHash}
+                        className="inline-flex items-center gap-1 text-[#B7F34A] hover:underline cursor-pointer"
+                      >
+                        {copiedFileHash ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedFileHash ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className={`p-2 rounded-xl bg-[#101716] border border-white/[0.08] text-[11px] break-all ${fileHash ? 'text-[#9FB0AD] font-mono select-all' : 'text-[#9FB0AD]/60 italic'}`}>
+                    {fileHash || 'No file attached'}
+                  </div>
+                </div>
+
+                {/* Network & Timestamp */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] pt-1 border-t border-white/[0.04]">
                   <div>
                     <span className="text-[#9FB0AD] block">Network Node:</span>
-                    <span className="text-[#F3F1EA]">{item.network || 'Govt. J&K EduLedger (Proof-of-Authority)'}</span>
+                    <span className="text-[#F3F1EA]">{network}</span>
                   </div>
                   <div>
                     <span className="text-[#9FB0AD] block">Block Timestamp:</span>
-                    <span className="text-[#F3F1EA]">{item.timestamp || '2024-12-19 · 14:32:10 UTC'}</span>
+                    <span className="text-[#F3F1EA]">{approvalTimestamp}</span>
                   </div>
                 </div>
               </div>
@@ -253,18 +289,18 @@ export const ProofModal = ({ item, isOpen, onClose }) => {
           {/* Footer Actions */}
           <div className="pt-4 border-t border-white/[0.08] flex items-center justify-between gap-3">
             <button
-              onClick={handleCopyHash}
+              onClick={handleCopyProofHash}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium text-[#F3F1EA] transition-colors cursor-pointer"
             >
               <Copy className="w-3.5 h-3.5 text-[#B7F34A]" />
-              {copied ? 'Hash Copied!' : 'Copy Verification Hash'}
+              {copiedProofHash ? 'Hash Copied!' : 'Copy Verification Hash'}
             </button>
 
             <button
               onClick={onClose}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#B7F34A] hover:bg-[#C9FA62] text-xs font-semibold text-[#172120] transition-colors shadow-[0_0_20px_rgba(183,243,74,0.25)] cursor-pointer"
+              className="px-6 py-2.5 rounded-full bg-[#B7F34A] hover:bg-[#C9FA62] text-xs font-semibold text-[#172120] transition-colors cursor-pointer"
             >
-              Done →
+              Done
             </button>
           </div>
         </motion.div>

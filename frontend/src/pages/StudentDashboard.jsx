@@ -24,17 +24,24 @@ import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { ApplicationTracker } from '../components/jobs/ApplicationTracker';
 import { useAuth } from '../context/AuthContext';
 import { useJobs } from '../context/JobsContext';
+import { useActivities } from '../context/ActivitiesContext';
 import { rankJobsForStudent } from '../utils/matchJobs';
 import { isPastDeadline } from '../utils/dates';
-import { initialActivities, mockStudent } from '../data/mock';
+import { mockStudent } from '../data/mock';
 
 export const StudentDashboard = () => {
   const { currentUser } = useAuth();
   const student = currentUser || mockStudent;
+  const studentEmail = student.email || 'aarav.sharma@nitsri.ac.in';
+
+  const { getActivitiesForStudent, addActivity } = useActivities();
+  const activities = getActivitiesForStudent(studentEmail);
   const { jobs, applyToJob, getApplicationsForStudent } = useJobs();
 
-  // Local state for activities (so uploads immediately reflect)
-  const [activities, setActivities] = useState(initialActivities);
+  // Prefill state for resubmission
+  const [prefillData, setPrefillData] = useState(null);
+  const [prefillKey, setPrefillKey] = useState(0);
+  const [highlightedActivityId, setHighlightedActivityId] = useState(null);
 
   // Modal & Toast state
   const [selectedProof, setSelectedProof] = useState(null);
@@ -63,6 +70,23 @@ export const StudentDashboard = () => {
     };
   }, []);
 
+  // Listen for activity focus from notifications bell
+  useEffect(() => {
+    const handleNavigateActivity = (e) => {
+      const actId = e.detail?.activityId;
+      if (actId) {
+        setHighlightedActivityId(actId);
+        const el = document.getElementById(`activity-${actId}`) || document.getElementById('activities-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        setTimeout(() => setHighlightedActivityId(null), 5000);
+      }
+    };
+    window.addEventListener('skillvault:navigate-activity', handleNavigateActivity);
+    return () => window.removeEventListener('skillvault:navigate-activity', handleNavigateActivity);
+  }, []);
+
   const handleShowToast = (toastObj) => {
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current);
@@ -88,7 +112,7 @@ export const StudentDashboard = () => {
   };
 
   const handleAddActivity = (newActivity) => {
-    setActivities((prev) => [newActivity, ...prev]);
+    addActivity(newActivity);
 
     // Trigger subtle celebratory confetti
     try {
@@ -106,6 +130,21 @@ export const StudentDashboard = () => {
       type: 'success',
       title: 'Achievement queued for verification!',
       message: `"${newActivity.title}" was submitted to the faculty review queue.`,
+    });
+  };
+
+  const handleResubmit = (act) => {
+    setPrefillData({
+      title: act.title,
+      category: act.category,
+      description: act.description,
+      skills: act.skills || []
+    });
+    setPrefillKey((k) => k + 1);
+    handleShowToast({
+      type: 'info',
+      title: 'Details prefilled for resubmission',
+      message: 'Review or update your achievement proof, then re-submit for faculty verification.'
     });
   };
 
@@ -127,7 +166,6 @@ export const StudentDashboard = () => {
   }, [rankedJobs]);
 
   // Applications submitted by current student
-  const studentEmail = student.email || 'aarav.sharma@nitsri.ac.in';
   const studentApplications = getApplicationsForStudent(studentEmail);
   const appliedJobMap = useMemo(() => {
     const map = new Map();
@@ -331,17 +369,26 @@ export const StudentDashboard = () => {
         {/* =========================================================================
             SECTION 2: UPLOAD ACHIEVEMENT (CARD)
            ========================================================================= */}
-        <UploadCard onAddActivity={handleAddActivity} />
+        <UploadCard
+          key={prefillKey}
+          onAddActivity={handleAddActivity}
+          initialValues={prefillData}
+        />
 
         {/* =========================================================================
             SECTION 3: ACTIVITY TIMELINE
            ========================================================================= */}
-        <Timeline activities={activities} onSelectProof={handleOpenProof} />
+        <Timeline
+          activities={activities}
+          onSelectProof={handleOpenProof}
+          onResubmit={handleResubmit}
+          highlightedActivityId={highlightedActivityId}
+        />
 
         {/* =========================================================================
             SECTION 4: AI SKILL-GAP & CAREER DASHBOARD
            ========================================================================= */}
-        <SkillRadar />
+        <SkillRadar activities={activities} />
 
         {/* =========================================================================
             SECTION 5: JOBS FOR YOU (MATCHED TO VERIFIED SKILLS)
